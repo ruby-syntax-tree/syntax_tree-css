@@ -1,3 +1,3 @@
 [submodule "css-parsing-tests"]
-	path = css-parsing-tests
+	path = test/css-parsing-tests
 	url = https://github.com/SimonSapin/css-parsing-tests.git

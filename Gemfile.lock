@@ -1,7 +1,23 @@
+PATH
+  remote: .
+  specs:
+    syntax_tree-css (0.1.0)
+      prettier_print
+      syntax_tree (>= 2.0.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
+    docile (1.4.0)
+    minitest (5.15.0)
     prettier_print (0.1.0)
+    rake (13.0.6)
+    simplecov (0.21.2)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-html (0.12.3)
+    simplecov_json_formatter (0.1.4)
     syntax_tree (2.7.1)
       prettier_print
 
@@ -9,8 +25,11 @@ PLATFORMS
   x86_64-darwin-21
 
 DEPENDENCIES
-  prettier_print
-  syntax_tree
+  bundler
+  minitest
+  rake
+  simplecov
+  syntax_tree-css!
 
 BUNDLED WITH
    2.4.0.dev

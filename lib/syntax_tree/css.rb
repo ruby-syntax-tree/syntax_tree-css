@@ -6,8 +6,10 @@ require "syntax_tree"
 require_relative "css/nodes"
 require_relative "css/parser"
 require_relative "css/selectors"
-require_relative "css/visitor"
 
+require_relative "css/basic_visitor"
+require_relative "css/format"
+require_relative "css/visitor"
 require_relative "css/pretty_print"
 
 module SyntaxTree

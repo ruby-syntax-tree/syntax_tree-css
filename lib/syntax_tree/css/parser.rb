@@ -78,7 +78,7 @@ module SyntaxTree
       # https://www.w3.org/TR/css-syntax-3/#parse-stylesheet
       def parse_stylesheet
         tokens = tokenize
-        rules = consume_list_of_rules(tokens, top_level: true)
+        rules = consume_rule_list(tokens, top_level: true)
 
         location =
           if rules.any?
@@ -92,8 +92,148 @@ module SyntaxTree
 
       # 5.3.4. Parse a list of rules
       # https://www.w3.org/TR/css-syntax-3/#parse-list-of-rules
-      def parse_list_of_rules(tokens)
-        consume_list_of_rules(tokens, top_level: false)
+      def parse_rule_list
+        consume_rule_list(tokenize, top_level: false)
+      end
+
+      # 5.3.5. Parse a rule
+      # https://www.w3.org/TR/css-syntax-3/#parse-rule
+      def parse_rule
+        # 1.
+        tokens = tokenize
+
+        # 2.
+        loop do
+          case tokens.peek
+          in CommentToken | WhitespaceToken
+            tokens.next
+          else
+            break
+          end
+        end
+
+        # 3.
+        rule = nil
+
+        case tokens.peek
+        in EOFToken
+          return ParseError.new("Unexpected end of input parsing rule")
+        in AtKeywordToken
+          rule = consume_at_rule(tokens)
+        else
+          rule = consume_qualified_rule(tokens)
+          return ParseError.new("Expected a rule at #{tokens.peek.location.start_char}") unless rule
+        end
+
+        # 4.
+        loop do
+          case tokens.peek
+          in CommentToken | WhitespaceToken
+            tokens.next
+          else
+            break
+          end
+        end
+
+        # 5.
+        case tokens.peek
+        in EOFToken
+          rule
+        else
+          ParseError.new("Expected end of input parsing rule")
+        end
+      end
+
+      # 5.3.6. Parse a declaration
+      # https://www.w3.org/TR/css-syntax-3/#parse-declaration
+      def parse_declaration
+        # 1.
+        tokens = tokenize
+
+        # 2.
+        loop do
+          case tokens.peek
+          in CommentToken | WhitespaceToken
+            tokens.next
+          else
+            break
+          end
+        end
+
+        # 3.
+        case tokens.peek
+        in IdentToken
+          # do nothing
+        in EOFToken
+          return ParseError.new("Unexpected end of input parsing declaration")
+        else
+          return ParseError.new("Expected an identifier at #{tokens.peek.location.start_char}")
+        end
+
+        # 4.
+        if (declaration = consume_declaration(tokens))
+          declaration
+        else
+          ParseError.new("Expected a declaration at #{tokens.peek.location.start_char}")
+        end
+      end
+
+      # 5.3.8. Parse a list of declarations
+      # https://www.w3.org/TR/css-syntax-3/#parse-list-of-declarations
+      def parse_declaration_list
+        consume_declaration_list(tokenize)
+      end
+
+      # 5.3.9. Parse a component value
+      # https://www.w3.org/TR/css-syntax-3/#parse-component-value
+      def parse_component_value
+        # 1.
+        tokens = tokenize
+
+        # 2.
+        loop do
+          case tokens.peek
+          in CommentToken | WhitespaceToken
+            tokens.next
+          else
+            break
+          end
+        end
+
+        # 3.
+        if tokens.peek.is_a?(EOFToken)
+          return ParseError.new("Unexpected end of input parsing component value")
+        end
+
+        # 4.
+        value = consume_component_value(tokens)
+
+        # 5.
+        loop do
+          case tokens.peek
+          in CommentToken | WhitespaceToken
+            tokens.next
+          else
+            break
+          end
+        end
+
+        # 6.
+        if tokens.peek.is_a?(EOFToken)
+          value
+        else
+          ParseError.new("Expected end of input parsing component value")
+        end
+      end
+
+      # 5.3.10. Parse a list of component values
+      # https://www.w3.org/TR/css-syntax-3/#parse-list-of-component-values
+      def parse_component_values
+        tokens = tokenize
+        values = []
+
+        values << consume_component_value(tokens) until tokens.peek.is_a?(EOFToken)
+        values
       end
 
       private
@@ -106,8 +246,13 @@ module SyntaxTree
       # 3.3. Preprocessing the input stream
       # https://www.w3.org/TR/css-syntax-3/#input-preprocessing
       def preprocess(input)
-        input.gsub(/\r\n?|\f/, "\n")
-        # .gsub(/\x00|[\u{D800}-\u{DFFF}]/, "\u{FFFD}")
+        input.gsub(/\r\n?|\f/, "\n").gsub(/\x00/, "\u{FFFD}")
+
+        # We should also be replacing surrogate characters in the input stream
+        # with the replacement character, but it's not entirely possible to do
+        # that if the string is already UTF-8 encoded. Until we dive further
+        # into encoding and handle fallback encodings, we'll just skip this.
+        # .gsub(/[\u{D800}-\u{DFFF}]/, "\u{FFFD}")
       end
 
       #-------------------------------------------------------------------------
@@ -127,7 +272,7 @@ module SyntaxTree
             index = state.index
           end
 
-          enum << Token.eof(index)
+          enum << EOFToken[index]
         end
       end
 
@@ -138,9 +283,7 @@ module SyntaxTree
         when %r{\A/\*}
           consume_comment(index)
         when /\A#{WHITESPACE}+/o
-          State.new(Token.new(:whitespace, $&, index...(index + $&.length)), index + $&.length)
-        when /\A[\(\)\[\]{}]/
-          State.new(Token.new($&.to_sym, $&, index...(index + 1)), index + 1)
+          State.new(WhitespaceToken.new(value: $&, location: index...(index + $&.length)), index + $&.length)
         when /\A["']/
           consume_string(index, $&)
         when /\A#/
@@ -148,73 +291,84 @@ module SyntaxTree
             state = consume_ident_sequence(index + 1)
 
             State.new(
-              Token.new(
-                :hash,
-                state.value,
-                index...state.index,
-                type: start_ident_sequence?(index + 1) ? "id" : nil
+              HashToken.new(
+                value: state.value,
+                type: start_ident_sequence?(index + 1) ? "id" : "unrestricted",
+                location: index...state.index
               ),
               state.index
             )
           else
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: "#", location: index...(index + 1)), index + 1)
           end
+        when /\A\(/
+          State.new(OpenParenToken.new(location: index...(index + 1)), index + 1)
+        when /\A\)/
+          State.new(CloseParenToken.new(location: index...(index + 1)), index + 1)
         when /\A\+/
           if start_number?(index + 1)
             consume_numeric(index)
           else
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: "+", location: index...(index + 1)), index + 1)
           end
         when /\A,/
-          State.new(Token.new(:comma, $&, index...(index + 1)), index + 1)
+          State.new(CommaToken.new(location: index...(index + 1)), index + 1)
         when /\A-/
           if start_number?(index)
             consume_numeric(index)
           elsif source[index + 1] == "-" && source[index + 2] == ">"
-            State.new(Token.new(:CDC, "-->", index...(index + 3)), index + 3)
+            State.new(CDCToken.new(location: index...(index + 3)), index + 3)
           elsif start_ident_sequence?(index)
             consume_ident_like(index)
           else
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: "-", location: index...(index + 1)), index + 1)
           end
         when /\A\./
           if start_number?(index)
             consume_numeric(index)
           else
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: ".", location: index...(index + 1)), index + 1)
           end
         when /\A:/
-          State.new(Token.new(:colon, $&, index...(index + 1)), index + 1)
+          State.new(ColonToken.new(location: index...(index + 1)), index + 1)
         when /\A;/
-          State.new(Token.new(:semicolon, $&, index...(index + 1)), index + 1)
+          State.new(SemicolonToken.new(location: index...(index + 1)), index + 1)
         when /\A</
           if source[index...(index + 4)] == "<!--"
-            State.new(Token.new(:CDO, "<!--", index...(index + 4)), index + 4)
+            State.new(CDOToken.new(location: index...(index + 4)), index + 4)
           else
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: "<", location: index...(index + 1)), index + 1)
           end
         when /\A@/
           if start_ident_sequence?(index + 1)
             state = consume_ident_sequence(index + 1)
-            State.new(Token.new(:at_keyword, state.value, index...state.index), state.index)
+            State.new(AtKeywordToken.new(value: state.value, location: index...state.index), state.index)
           else
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: "@", location: index...(index + 1)), index + 1)
           end
+        when /\A\[/
+          State.new(OpenSquareToken.new(location: index...(index + 1)), index + 1)
         when %r{\A\\}
           if valid_escape?(source[index], source[index + 1])
             consume_ident_like(index)
           else
             errors << ParseError.new("invalid escape at #{index}")
-            State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+            State.new(DelimToken.new(value: "\\", location: index...(index + 1)), index + 1)
           end
+        when /\A\]/
+          State.new(CloseSquareToken.new(location: index...(index + 1)), index + 1)
+        when /\A\{/
+          State.new(OpenCurlyToken.new(location: index...(index + 1)), index + 1)
+        when /\A\}/
+          State.new(CloseCurlyToken.new(location: index...(index + 1)), index + 1)
         when /\A#{DIGIT}/o
           consume_numeric(index)
         when /\A#{IDENT_START}/o
           consume_ident_like(index)
-        when nil
-          State.new(Token.eof(index), index)
+        when "", nil
+          State.new(EOFToken[index], index)
         else
-          State.new(Token.new(:delim, $&, index...(index + 1)), index + 1)
+          State.new(DelimToken.new(value: source[index], location: index...(index + 1)), index + 1)
         end
       end
 
@@ -225,10 +379,11 @@ module SyntaxTree
 
         if ending.nil?
           errors << ParseError.new("unterminated comment starting at #{index}")
-          State.new(Token.new(:comment, source[index..], index...source.length), source.length)
+          location = index...source.length
+          State.new(CommentToken.new(value: source[location], location: location), source.length)
         else
           location = index...(ending + 2)
-          State.new(Token.new(:comment, source[location], location), ending + 2)
+          State.new(CommentToken.new(value: source[location], location: location), ending + 2)
         end
       end
 
@@ -242,16 +397,13 @@ module SyntaxTree
         index = state.index
 
         if start_ident_sequence?(index)
-          token = Token.new(:dimension, value, start...index, type: type)
           state = consume_ident_sequence(index)
-
-          token.flags[:unit] = state.value
-          State.new(token, state.index)
+          State.new(DimensionToken.new(value: value, unit: state.value, type: type, location: start...index), state.index)
         elsif source[index] == "%"
           index += 1
-          State.new(Token.new(:percentage, value, start...index, type: type), index)
+          State.new(PercentageToken.new(value: value, type: type, location: start...index), index)
         else
-          State.new(Token.new(:number, value, start...index, type: type), index)
+          State.new(NumberToken.new(value: value, type: type, location: start...index), index)
         end
       end
 
@@ -264,19 +416,27 @@ module SyntaxTree
         index = state.index
         string = state.value
 
-        if string.casecmp("url") == 0 && source[index] == "("
-          index += 1 while whitespace?(source[index])
+        if (string.casecmp("url") == 0) && (source[index] == "(")
+          index += 1 # (
 
-          if /["']/.match?(source[index])
-            State.new(Token.new(:function, string, start...index), index)
+          # While the next two input code points are whitespace, consume the
+          # next input code point.
+          while whitespace?(source[index]) && whitespace?(source[index + 1])
+            index += 1
+          end
+
+          if /["']/.match?(source[index]) || (whitespace?(source[index]) && /["']/.match?(source[index + 1]))
+            State.new(FunctionToken.new(value: string, location: start...index), index)
           else
             consume_url(start)
           end
         elsif source[index] == "("
           index += 1
-          State.new(Token.new(:function, string, start...index), index)
+          State.new(FunctionToken.new(value: string, location: start...index), index)
+        elsif (string.casecmp("u") == 0) && (state = consume_urange(index - 1))
+          state
         else
-          State.new(Token.new(:ident, string, start...index), index)
+          State.new(IdentToken.new(value: string, location: start...index), index)
         end
       end
 
@@ -290,13 +450,13 @@ module SyntaxTree
         while index <= source.length
           case source[index]
           when quote
-            return State.new(Token.new(:string, value, start...(index + 1)), index + 1)
+            return State.new(StringToken.new(value: value, location: start...(index + 1)), index + 1)
           when nil
             errors << ParseError.new("unterminated string at #{start}")
-            return State.new(Token.new(:string, value, start...index), index)
+            return State.new(StringToken.new(value: value, location: start...index), index)
           when "\n"
             errors << ParseError.new("newline in string at #{index}")
-            return State.new(Token.new(:bad_string, value, start...index), index)
+            return State.new(BadStringToken.new(value: value, location: start...index), index)
           when "\\"
             index += 1
 
@@ -321,7 +481,7 @@ module SyntaxTree
       # https://www.w3.org/TR/css-syntax-3/#consume-url-token
       def consume_url(index)
         # 1.
-        value +""
+        value = +""
 
         # 2.
         start = index
@@ -332,37 +492,37 @@ module SyntaxTree
         while index <= source.length
           case source[index..]
           when /\A\)/
-            return State.new(Token.new(:url, value, start...(index + 1)), index + 1)
-          when nil
+            return State.new(URLToken.new(value: value, location: start...(index + 1)), index + 1)
+          when "", nil
             errors << ParseError.new("unterminated url at #{start}")
-            return State.new(Token.new(:url, value, start...index), index)
+            return State.new(URLToken.new(value: value, location: start...index), index)
           when /\A#{WHITESPACE}+/o
             index += $&.length
 
             case source[index]
             when ")"
-              return State.new(Token.new(:url, value, start...(index + 1)), index + 1)
+              return State.new(URLToken.new(value: value, location: start...(index + 1)), index + 1)
             when nil
               errors << ParseError.new("unterminated url at #{start}")
-              return State.new(Token.new(:url, value, start...index), index)
+              return State.new(URLToken.new(value: value, location: start...index), index)
             else
               errors << ParseError.new("invalid url at #{start}")
               state = consume_bad_url_remnants(index)
-              return State.new(Token.new(:bad_url, value + state.value, start...state.index), state.index)
+              return State.new(BadURLToken.new(value: value + state.value, location: start...state.index), state.index)
             end
           when /\A["'(]|#{NON_PRINTABLE}/o
             errors << ParseError.new("invalid character in url at #{index}")
             state = consume_bad_url_remnants(index)
-            return State.new(Token.new(:bad_url, value + state.value, start...state.index), state.index)
+            return State.new(BadURLToken.new(value: value + state.value, location: start...state.index), state.index)
           when %r{\A\\}
             if valid_escape?(source[index], source[index + 1])
-              state = consume_escaped_code_point(index)
+              state = consume_escaped_code_point(index + 1)
               value << state.value
               index = state.index
             else
               errors << ParseError.new("invalid escape at #{index}")
               state = consume_bad_url_remnants(index)
-              return State.new(Token.new(:bad_url, value + state.value, start...state.index), state.index)
+              return State.new(BadURLToken.new(value: value + state.value, location: start...state.index), state.index)
             end
           else
             value << source[index]
@@ -400,7 +560,7 @@ module SyntaxTree
       # 4.3.9. Check if three code points would start an ident sequence
       # https://www.w3.org/TR/css-syntax-3/#would-start-an-identifier
       def start_ident_sequence?(index)
-        first, second, third = source[index...(index + 3)]
+        first, second, third = source[index...(index + 3)].chars
 
         case first
         when "-"
@@ -418,10 +578,10 @@ module SyntaxTree
       # 4.3.10. Check if three code points would start a number
       # https://www.w3.org/TR/css-syntax-3/#starts-with-a-number
       def start_number?(index)
-        first, second, third = source[index...(index + 3)]
+        first, second, third = source[index...(index + 3)].chars
 
         case first
-        when /[+-]/
+        when "+", "-"
           digit?(second) || (second == "." && digit?(third))
         when "."
           digit?(second)
@@ -535,7 +695,7 @@ module SyntaxTree
 
         while index <= source.length
           case source[index..]
-          when nil
+          when "", nil
             return State.new(value, index)
           when /\A\)/
             value << ")"
@@ -575,21 +735,23 @@ module SyntaxTree
 
       # 5.4.1. Consume a list of rules
       # https://www.w3.org/TR/css-syntax-3/#consume-list-of-rules
-      def consume_list_of_rules(tokens, top_level: true)
+      def consume_rule_list(tokens, top_level: true)
         rules = []
 
         loop do
           case tokens.peek
-          in { type: :whitespace }
+          in CommentToken | WhitespaceToken
             tokens.next
-          in { type: :EOF }
+          in EOFToken
             return rules
-          in { type: :CDO | :CDC }
-            unless top_level
+          in CDCToken | CDOToken
+            if top_level
+              tokens.next
+            else
               rule = consume_qualified_rule(tokens)
               rules << rule if rule
             end
-          in { type: :at_keyword }
+          in AtKeywordToken
             rules << consume_at_rule(tokens)
           else
             rule = consume_qualified_rule(tokens)
@@ -607,12 +769,13 @@ module SyntaxTree
 
         loop do
           case tokens.peek
-          in { type: :semicolon, location: }
+          in SemicolonToken[location:]
+            tokens.next
             return AtRule.new(name: name_token.value, prelude: prelude, block: block, location: name_token.location.to(location))
-          in { type: :EOF, location: }
+          in EOFToken[location:]
             errors << ParseError.new("Unexpected EOF while parsing at-rule")
             return AtRule.new(name: name_token.value, prelude: prelude, block: block, location: name_token.location.to(location))
-          in { type: :"(" }
+          in OpenCurlyToken
             block = consume_simple_block(tokens)
             return AtRule.new(name: name_token.value, prelude: prelude, block: block, location: name_token.location.to(block.location))
           else
@@ -629,9 +792,10 @@ module SyntaxTree
 
         loop do
           case tokens.peek
-          in { type: :EOF }
+          in EOFToken
+            errors << ParseError.new("Unexpected EOF while parsing qualified rule")
             return nil
-          in { type: :"{" }
+          in OpenCurlyToken
             block = consume_simple_block(tokens)
             location = prelude.any? ? prelude.first.location.to(block.location) : block.location
             return QualifiedRule.new(prelude: prelude, block: block, location: location)
@@ -649,21 +813,24 @@ module SyntaxTree
 
         loop do
           case tokens.peek
-          in { type: :whitespace | :semicolon }
+          in SemicolonToken | WhitespaceToken
             tokens.next
-          in { type: :EOF }
+          in EOFToken
             tokens.next
             return declarations + rules
-          in { type: :at_keyword }
+          in AtKeywordToken
             rules << consume_at_rule(tokens)
-          in { type: :ident }
+          in IdentToken
             list = [tokens.next]
 
             loop do
               case tokens.peek
-              in { type: :semicolon | :EOF }
+              in EOFToken
                 list << tokens.next
-                list << Token.eof(list.last.location.end_char) if list.last.type != :EOF
+                break
+              in SemicolonToken
+                list << tokens.next
+                list << EOFToken[list.last.location.end_char]
                 break
               else
                 list << consume_component_value(tokens)
@@ -672,11 +839,11 @@ module SyntaxTree
 
             declaration = consume_declaration(list.to_enum)
             declarations << declaration if declaration
-          in { type: :delim, value: "&" }
+          in DelimToken[value: "&"]
             rule = consume_qualified_rule(tokens)
             rules << rule if rule
           in { location: }
-            errors << ParseError.new("Unexpected token while parsing style block at #{locations.start_char}")
+            errors << ParseError.new("Unexpected token while parsing style block at #{location.start_char}")
 
             until %i[semicolon EOF].include?(tokens.peek.type)
               consume_component_value(tokens)
@@ -692,28 +859,49 @@ module SyntaxTree
 
         loop do
           case tokens.peek
-          in { type: :whitespace | :semicolon }
-            # do nothing
-          in { type: :EOF }
+          in SemicolonToken | WhitespaceToken
+            tokens.next
+          in EOFToken
+            tokens.next
             return declarations
-          in { type: :at_keyword }
+          in AtKeywordToken
             declarations << consume_at_rule(tokens)
-          in { type: :ident }
+          in IdentToken
             list = [tokens.next]
-            until %i[semicolon EOF].include?(tokens.peek.type)
-              list << consume_component_value(tokens)
+
+            loop do
+              case tokens.peek
+              in EOFToken | SemicolonToken
+                break
+              else
+                list << consume_component_value(tokens)
+              end
             end
 
-            list << tokens.next
-            list << Token.eof(list.last.location.end_char) if list.last.type != :EOF
+            if tokens.peek.is_a?(EOFToken)
+              list << tokens.next
 
-            declaration = consume_declaration(list.to_enum)
-            declarations << declaration if declaration
+              declaration = consume_declaration(list.to_enum)
+              declarations << declaration if declaration
+
+              return declarations
+            else
+              tokens.next
+              list << EOFToken[list.last.location.end_char]
+  
+              declaration = consume_declaration(list.to_enum)
+              declarations << declaration if declaration  
+            end
           else
             errors << ParseError.new("Unexpected token while parsing declaration list at #{tokens.peek.location.start_char}")
 
-            until %i[semicolon EOF].include?(tokens.peek.type)
-              consume_component_value(tokens)
+            loop do
+              case tokens.peek
+              in EOFToken | SemicolonToken
+                break
+              else
+                consume_component_value(tokens)
+              end
             end
           end
         end
@@ -729,7 +917,7 @@ module SyntaxTree
         # 1.
         loop do
           case tokens.peek
-          in { type: :whitespace }
+          in CommentToken | WhitespaceToken
             tokens.next
           else
             break
@@ -737,7 +925,8 @@ module SyntaxTree
         end
 
         # 2.
-        if tokens.peek.type == :colon
+        case tokens.peek
+        in ColonToken
           tokens.next
         else
           errors << ParseError.new("Expected colon at #{tokens.peek.location.start_char}")
@@ -747,7 +936,7 @@ module SyntaxTree
         # 3.
         loop do
           case tokens.peek
-          in { type: :whitespace }
+          in CommentToken | WhitespaceToken
             tokens.next
           else
             break
@@ -755,37 +944,40 @@ module SyntaxTree
         end
 
         # 4.
-        loop do
-          case tokens.peek
-          in { type: :EOF }
-            break
-          else
-            value << consume_component_value(tokens)
-          end
-        end
+        value << consume_component_value(tokens) until tokens.peek.is_a?(EOFToken)
 
         # 5.
-        case value.select { |token| token.is_a?(Token) && token.type != :whitespace }[-2..]
-        in [{ type: :delim, value: "!" }, { type: :ident, value: /\Aimportant\z/i }]
-          value.pop(2)
+        case value.reject { |token| token.is_a?(WhitespaceToken) || token.is_a?(CommentToken) }[-2..]
+        in [DelimToken[value: "!"] => first, IdentToken[value: /\Aimportant\z/i] => second]
+          value.delete(first)
+          value.delete(second)
           important = true
         else
         end
 
         # 6.
-        value.pop while value[-1].type == :whitespace
+        loop do
+          case value[-1]
+          in CommentToken | WhitespaceToken
+            value.pop
+          else
+            break
+          end
+        end
 
         # 7.
-        Declaration.new(name: name.value, value: value, important: important, location: name.location.to(value.last.location))
+        location = name.location
+        location = location.to(value.last.location) if value.any?
+        Declaration.new(name: name.value, value: value, important: important, location: location)
       end
 
       # 5.4.7. Consume a component value
       # https://www.w3.org/TR/css-syntax-3/#consume-component-value
       def consume_component_value(tokens)
         case tokens.peek
-        in { type: :"{" | :"[" | :"(" }
+        in OpenCurlyToken | OpenSquareToken | OpenParenToken
           consume_simple_block(tokens)
-        in { type: :function }
+        in FunctionToken
           consume_function(tokens)
         else
           tokens.next
@@ -796,19 +988,22 @@ module SyntaxTree
       # https://www.w3.org/TR/css-syntax-3/#consume-simple-block
       def consume_simple_block(tokens)
         token = tokens.next
-        ending = { "(": :")", "[": :"]", "{": :"}" }[token.type]
+        ending = {
+          OpenParenToken => CloseParenToken,
+          OpenSquareToken => CloseSquareToken,
+          OpenCurlyToken => CloseCurlyToken
+        }[token.class]
+
         value = []
 
         loop do
-          peek = tokens.peek
-
-          case peek.type
+          case tokens.peek
           when ending
             location = token.location.to(tokens.next.location)
             return SimpleBlock.new(token: token.value, value: value, location: location)
-          when :EOF
+          when EOFToken
             errors << ParseError.new("Unexpected EOF while parsing simple block at #{token.location.start_char}")
-            return SimpleBlock.new(token: token.value, value: value, location: token.location.to(peek.location))
+            return SimpleBlock.new(token: token.value, value: value, location: token.location.to(tokens.peek.location))
           else
             value << consume_component_value(tokens)
           end
@@ -823,14 +1018,140 @@ module SyntaxTree
 
         loop do
           case tokens.peek
-          in { type: :")", location: }
+          in CloseParenToken[location:]
+            tokens.next
             return Function.new(name: name_token.value, value: value, location: name_token.location.to(location))
-          in { type: :EOF, location: }
+          in EOFToken[location:]
             errors << ParseError.new("Unexpected EOF while parsing function at #{name_token.location.start_char}")
             return Function.new(name: name_token.value, value: value, location: name_token.location.to(location))
           else
             value << consume_component_value(tokens)
           end
+        end
+      end
+
+      #-------------------------------------------------------------------------
+      # 7. The Unicode-Range microsyntax
+      # https://www.w3.org/TR/css-syntax-3/#urange
+      #-------------------------------------------------------------------------
+
+      # 7.1. The <urange> type
+      # https://www.w3.org/TR/css-syntax-3/#urange-syntax
+      def consume_urange(index)
+        start = index
+        index += 1 # to move past the "u"
+
+        # At this point we've already consumed the "u". We need to gather up a
+        # couple of component values to see if it matches the grammar first,
+        # before we concatenate all of the representations together.
+        #
+        # To do this, we're going to build a little state machine. It's going to
+        # walk through with each input. If we receive an input for which there
+        # isn't a transition from the current state and the current state is not
+        # a final state, then we exit. Otherwise if it is a final state, we
+        # attempt to parse a urange token from the concatenation of the values
+        # of the tokens.
+        #
+        #     ┌───┐          ┌───┐ ── ? ──────> ┌───┐ ──┐
+        # ──> │ 1 │ ── + ──> │ 2 │ ── ident ──> │|3|│   ?
+        #     └───┘          └───┘        ┌───> └───┘ <─┘
+        #      ││                         │
+        #      │└─── dimension ───────────┘
+        #      └──── number ─────> ┌───┐          ┌───┐ ──┐
+        #       ┌─── dimension ─── │|4|│ ── ? ──> │|5|│   ?
+        #       │     ┌── number ─ └───┘          └───┘ <─┘
+        #       V     V
+        #     ┌───┐ ┌───┐
+        #     │|6|│ │|7|│
+        #     └───┘ └───┘
+        #
+        tokens = []
+        box = 1
+
+        loop do
+          state = consume_token(index)
+          box =
+            case [box, state.value]
+            in [1, DelimToken[value: "+"]] then 2
+            in [1, DimensionToken]         then 3
+            in [1, NumberToken]            then 4
+            in [2, DelimToken[value: "?"]] then 3
+            in [2, IdentToken]             then 3
+            in [3, DelimToken[value: "?"]] then 3
+            in [4, DelimToken[value: "?"]] then 5
+            in [4, DimensionToken]         then 6
+            in [4, NumberToken]            then 7
+            in [5, DelimToken[value: "?"]] then 5
+            else
+              if [3, 4, 5, 6, 7].include?(box)
+                break # final states
+              else
+                return
+              end
+            end
+
+          tokens << state.value
+          index = state.index
+        end
+
+        # 2.
+        text = "u" + tokens.map { |token| source[token.location.to_range] }.join
+        return if text[1] != "+"
+        index = 2
+
+        # 3.
+        match = text[index..].match(/\A\h*\?*/)
+        return unless match
+
+        value = match[0]
+        return unless (1..6).cover?(value.length)
+
+        index += value.length
+        start_value, end_value =
+          if value.end_with?("?")
+            return if index != text.length
+            [value.gsub("?", "0").hex, value.gsub("?", "F").hex]
+          else
+            [value.hex, value.hex]
+          end
+
+        # 4.
+        if index == text.length
+          return unless valid_urange?(start_value, end_value)
+
+          ending = start + text.length
+          return State.new(URange.new(start_value: start_value, end_value: end_value, location: start...ending), ending)
+        end
+
+        # 5.
+        return if text[index] != "-"
+        index += 1
+
+        # 6.
+        match = text[index..].match(/\A\h*/)
+        return if !match || match[0].length > 6
+
+        end_value = match[0].hex
+        index += match[0].length
+        return if index != text.length
+
+        # 7.
+        return unless valid_urange?(start_value, end_value)
+
+        ending = start + text.length
+        State.new(URange.new(start_value: start_value, end_value: end_value, location: start...ending), ending)
+      end
+
+      # Checks that the start and end value of a urange are valid.
+      def valid_urange?(start_value, end_value)
+        if end_value > 0x10FFFF
+          errors << ParseError.new("Invalid urange. #{end_value} greater than 0x10FFFF")
+          false
+        elsif start_value > end_value
+          errors << ParseError.new("Invalid urange. #{start_value} greater than #{end_value}")
+          false
+        else
+          true
         end
       end
 
@@ -853,8 +1174,8 @@ module SyntaxTree
       # 9.1. Style rules
       # https://www.w3.org/TR/css-syntax-3/#style-rules
       def create_style_rule(rule)
-        slct_tokens = [*rule.prelude, Token.eof(rule.location.end_char)]
-        decl_tokens = [*rule.block.value, Token.eof(rule.location.end_char)]
+        slct_tokens = [*rule.prelude, EOFToken[rule.location.end_char]]
+        decl_tokens = [*rule.block.value, EOFToken[rule.location.end_char]]
 
         StyleRule.new(
           selectors: Selectors.new(slct_tokens).parse,

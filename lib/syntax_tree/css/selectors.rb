@@ -42,12 +42,163 @@ module SyntaxTree
         end
       end
 
-      ComplexSelector = Struct.new(:left, :combinator, :right, keyword_init: true)
-      RelativeSelector = Struct.new(:combinator, :complex_selector, keyword_init: true)
-      CompoundSelector = Struct.new(:type, :subclasses, :pseudo_elements, keyword_init: true)
+      AttributeSelector = Struct.new(:wq_name, :matcher, keyword_init: true)
+      AttributeSelectorMatcher = Struct.new(:attr_matcher, :token, :modifier, keyword_init: true)
+      AttrMatcher = Struct.new(:prefix, keyword_init: true)
+      AttrModifier = Struct.new(:value, keyword_init: true)
+
+      # The class of an element, e.g., .foo
+      # https://www.w3.org/TR/selectors-4/#typedef-class-selector
+      class ClassSelector < Node
+        attr_reader :value
+
+        def initialize(value:)
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_class_selector(self)
+        end
+
+        def child_nodes
+          [value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { value: value }
+        end
+      end
+
       Combinator = Struct.new(:value, keyword_init: true)
-      TypeSelector = Struct.new(:prefix, keyword_init: true)
+      ComplexSelector = Struct.new(:left, :combinator, :right, keyword_init: true)
+      CompoundSelector = Struct.new(:type, :subclasses, :pseudo_elements, keyword_init: true)
+
+      # The ID of an element, e.g., #foo
+      # https://www.w3.org/TR/selectors-4/#typedef-id-selector
+      class IdSelector < Node
+        attr_reader :value
+
+        def initialize(value:)
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_id_selector(self)
+        end
+
+        def child_nodes
+          [value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { value: value }
+        end
+      end
+
       NsPrefix = Struct.new(:value, keyword_init: true)
+
+      # A pseudo class function call, like :nth-child.
+      class PseudoClassFunction < Node
+        attr_reader :name, :arguments
+
+        def initialize(name:, arguments:)
+          @name = name
+          @arguments = arguments
+        end
+
+        def accept(visitor)
+          visitor.visit_pseudo_class_function(self)
+        end
+
+        def child_nodes
+          arguments
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { name: name, arguments: arguments }
+        end
+      end
+
+      # A pseudo class selector, like :hover.
+      # https://www.w3.org/TR/selectors-4/#typedef-pseudo-class-selector
+      class PseudoClassSelector < Node
+        attr_reader :value
+
+        def initialize(value:)
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_pseudo_class_selector(self)
+        end
+
+        def child_nodes
+          [value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { value: value }
+        end
+      end
+
+      # A pseudo element selector, like ::before.
+      # https://www.w3.org/TR/selectors-4/#typedef-pseudo-element-selector
+      class PseudoElementSelector < Node
+        attr_reader :value
+
+        def initialize(value:)
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_pseudo_element_selector(self)
+        end
+
+        def child_nodes
+          [value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { value: value }
+        end
+      end
+
+      RelativeSelector = Struct.new(:combinator, :complex_selector, keyword_init: true)
+
+      # A selector for a specific tag name.
+      # https://www.w3.org/TR/selectors-4/#typedef-type-selector
+      class TypeSelector < Node
+        attr_reader :prefix, :value
+
+        def initialize(prefix:, value:)
+          @prefix = prefix
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_type_selector(self)
+        end
+
+        def child_nodes
+          [prefix, value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { prefix: prefix, value: value }
+        end
+      end
 
       # The name of an element, e.g., foo
       class WqName < Node
@@ -72,60 +223,6 @@ module SyntaxTree
           { prefix: prefix, name: name }
         end
       end
-
-      # The ID of an element, e.g., #foo
-      class IdSelector < Node
-        attr_reader :value
-
-        def initialize(value:)
-          @value = value
-        end
-
-        def accept(visitor)
-          visitor.visit_id_selector(self)
-        end
-
-        def child_nodes
-          [value]
-        end
-
-        alias deconstruct child_nodes
-
-        def deconstruct_keys(keys)
-          { value: value }
-        end
-      end
-
-      # The class of an element, e.g., .foo
-      class ClassSelector < Node
-        attr_reader :value
-
-        def initialize(value:)
-          @value = value
-        end
-
-        def accept(visitor)
-          visitor.visit_class_selector(self)
-        end
-
-        def child_nodes
-          [value]
-        end
-
-        alias deconstruct child_nodes
-
-        def deconstruct_keys(keys)
-          { value: value }
-        end
-      end
-
-      AttributeSelector = Struct.new(:wq_name, :matcher, keyword_init: true)
-      AttributeSelectorMatcher = Struct.new(:attr_matcher, :token, :modifier, keyword_init: true)
-      AttrMatcher = Struct.new(:prefix, keyword_init: true)
-      AttrModifier = Struct.new(:value, keyword_init: true)
-      PseudoClassSelector = Struct.new(:value, keyword_init: true)
-      PseudoClassFunction = Struct.new(:name, :arguments, keyword_init: true)
-      PseudoElementSelector = Struct.new(:value, keyword_init: true)
 
       attr_reader :tokens
 
@@ -249,17 +346,15 @@ module SyntaxTree
       # <type-selector> = <wq-name> | <ns-prefix>? '*'
       def type_selector
         selector = maybe { wq_name }
-        return selector if selector
+        return TypeSelector.new(prefix: nil, value: selector) if selector
 
         prefix = maybe { ns_prefix }
-        consume("*")
-
-        TypeSelector.new(prefix: prefix)
+        TypeSelector.new(prefix: prefix, value: consume("*"))
       end
 
       # <ns-prefix> = [ <ident-token> | '*' ]? '|'
       def ns_prefix
-        value = maybe { consume(:ident) } || maybe { consume("*") }
+        value = maybe { consume(IdentToken) } || maybe { consume("*") }
         consume("|")
 
         NsPrefix.new(value: value)
@@ -268,7 +363,7 @@ module SyntaxTree
       # <wq-name> = <ns-prefix>? <ident-token>
       def wq_name
         prefix = maybe { ns_prefix }
-        name = consume(:ident)
+        name = consume(IdentToken)
 
         WqName.new(prefix: prefix, name: name)
       end
@@ -286,31 +381,31 @@ module SyntaxTree
 
       # <id-selector> = <hash-token>
       def id_selector
-        IdSelector.new(value: consume(:hash))
+        IdSelector.new(value: consume(HashToken))
       end
 
       # <class-selector> = '.' <ident-token>
       def class_selector
         consume(".")
-        ClassSelector.new(value: consume(:ident))
+        ClassSelector.new(value: consume(IdentToken))
       end
 
       # <attribute-selector> = '[' <wq-name> ']' |
       #                  '[' <wq-name> <attr-matcher> [ <string-token> | <ident-token> ] <attr-modifier>? ']'
       def attribute_selector
-        consume(:"[")
+        consume(OpenSquareToken)
 
         name = wq_name
         matcher =
           maybe do
             AttributeSelectorMatcher.new(
               attr_matcher: attr_matcher,
-              token: options { maybe { consume(:string) } || maybe { consume(:ident) } },
+              token: options { maybe { consume(StringToken) } || maybe { consume(IdentToken) } },
               modifier: maybe { attr_modifier }
             )
           end
 
-        consume(:"]")
+        consume(CloseSquareToken)
         AttributeSelector.new(wq_name: name, matcher: matcher)
       end
 
@@ -336,27 +431,24 @@ module SyntaxTree
       # <pseudo-class-selector> = ':' <ident-token> |
       #                     ':' <function-token> <any-value> ')'
       def pseudo_class_selector
-        consume(:colon)
+        consume(ColonToken)
 
         case tokens.peek
-        in { type: :ident }
-          PseudoClassSelector.new(value: consume(:ident))
+        in IdentToken
+          PseudoClassSelector.new(value: consume(IdentToken))
         in Function
-          function = PseudoClassFunction.new(name: consume(:function), arguments: any_value)
-          consume(:")")
-
+          node = consume(Function)
+          function = PseudoClassFunction.new(name: node.name, arguments: node.value)
           PseudoClassSelector.new(value: function)
+        else
+          raise MissingTokenError, "Expected pseudo class selector to produce something"
         end
       end
 
       # <pseudo-element-selector> = ':' <pseudo-class-selector>
       def pseudo_element_selector
-        consume(":")
+        consume(ColonToken)
         PseudoElementSelector.new(value: pseudo_class_selector)
-      end
-
-      def any_value
-        raise
       end
 
       #-------------------------------------------------------------------------
@@ -366,7 +458,7 @@ module SyntaxTree
       def consume_whitespace
         loop do
           case tokens.peek
-          in { type: :whitespace | :comment }
+          in CommentToken | WhitespaceToken
             tokens.next
           else
             return
@@ -382,7 +474,7 @@ module SyntaxTree
 
         loop do
           consume_whitespace
-          if maybe { consume(:comma) }
+          if maybe { consume(CommaToken) }
             consume_whitespace
             items << yield
           else
@@ -394,15 +486,12 @@ module SyntaxTree
       def consume(*values)
         result =
           values.map do |value|
-            token = tokens.peek
-
-            if value.is_a?(String) && token.is_a?(Token) && token.type == :delim && token.value == value
+            case [value, tokens.peek]
+            in [String, DelimToken[value: token_value]] if value == token_value
               tokens.next
-            elsif value == :function && token.is_a?(Function)
+            in [Class, token] if token.is_a?(value)
               tokens.next
-            elsif value == token.type
-              tokens.next
-            else
+            in [_, token]
               raise MissingTokenError, "Expected #{value} but got #{token.inspect}"
             end
           end
