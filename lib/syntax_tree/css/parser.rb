@@ -829,7 +829,6 @@ module SyntaxTree
                 list << tokens.next
                 break
               in SemicolonToken
-                list << tokens.next
                 list << EOFToken[list.last.location.end_char]
                 break
               else
