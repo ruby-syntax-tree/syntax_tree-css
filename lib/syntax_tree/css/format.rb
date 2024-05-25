@@ -76,6 +76,48 @@ module SyntaxTree
           node.value.format(q)
         end
       end
+
+      # Visit a Selectors::ClassSelector node.
+      def visit_class_selector(node)
+        q.text(".")
+        node.value.format(q)
+      end
+
+      # Visit a Selectors::Combinator node.
+      def visit_combinator(node)
+        node.value.format(q)
+      end
+
+      # Visit a Selectors::ComplexSelector node.
+      def visit_complex_selector(node)
+        q.group do
+          node.left.format(q)
+
+          if node.combinator
+            q.text(" ")
+            node.combinator.format(q)
+          end
+
+          q.text(" ")
+          node.right.format(q)
+        end
+      end
+
+      # Visit a Selectors::CompoundSelector node.
+      def visit_compound_selector(node)
+        q.group do
+          node.type.format(q) if node.type
+          node.subclasses.each do |subclass|
+            subclass.format(q)
+          end
+          # TODO: pseudo-elements
+        end
+      end
+
+      def visit_wqname(node)
+        node.prefix.format(q) if node.prefix
+        node.name.format(q)
+      end
     end
   end
 end
