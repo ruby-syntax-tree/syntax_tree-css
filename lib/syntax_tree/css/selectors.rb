@@ -339,25 +339,19 @@ module SyntaxTree
       def complex_selector
         left = compound_selector
 
-        loop do
-          if (combinator = maybe { combinator })
-            ComplexSelector.new(left: left, combinator: combinator, right: compound_selector)
-          elsif (right = maybe { compound_selector })
-            ComplexSelector.new(left: left, combinator: nil, right: right)
-          else
-            break
-          end
+        if (c = maybe { combinator })
+          ComplexSelector.new(left: left, combinator: c, right: complex_selector)
+        elsif (right = maybe { complex_selector })
+          ComplexSelector.new(left: left, combinator: nil, right: right)
+        else
+          left
         end
-
-        left
       end
 
       # <relative-selector> = <combinator>? <complex-selector>
       def relative_selector
-        combinator = maybe { combinator }
-
-        if combinator
-          RelativeSelector.new(combinator: combinator, complex_selector: complex_selector)
+        if (c = maybe { combinator })
+          RelativeSelector.new(combinator: c, complex_selector: complex_selector)
         else
           complex_selector
         end
