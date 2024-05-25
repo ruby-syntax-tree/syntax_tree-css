@@ -337,6 +337,8 @@ module SyntaxTree
 
       # <complex-selector> = <compound-selector> [ <combinator>? <compound-selector> ]*
       def complex_selector
+        consume_whitespace
+
         left = compound_selector
 
         if (c = maybe { combinator })
@@ -396,6 +398,8 @@ module SyntaxTree
 
       # <combinator> = '>' | '+' | '~' | [ '|' '|' ]
       def combinator
+        consume_whitespace
+
         value =
           options do
             maybe { consume(">") } ||

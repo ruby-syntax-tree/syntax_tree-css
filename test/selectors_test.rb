@@ -97,6 +97,52 @@ module SyntaxTree
         end
       end
 
+      it "parses a complex selector with whitespace" do
+        actual = parse_selectors("section > table")
+
+        assert_pattern do
+          actual => [
+            Selectors::ComplexSelector[
+              left: Selectors::TypeSelector[value: { name: { value: "section" } }],
+              combinator: { value: { value: ">" } },
+              right: Selectors::TypeSelector[value: { name: { value: "table" } }],
+            ]
+          ]
+        end
+      end
+
+      it "parses a complex selector with implicit descendant combinator" do
+        actual = parse_selectors("section table")
+
+        assert_pattern do
+          actual => [
+            Selectors::ComplexSelector[
+              left: Selectors::TypeSelector[value: { name: { value: "section" } }],
+              combinator: nil,
+              right: Selectors::TypeSelector[value: { name: { value: "table" } }],
+            ]
+          ]
+        end
+      end
+
+      it "parses a complex complex selector" do
+        actual = parse_selectors("section > table tr")
+
+        assert_pattern do
+          actual => [
+            Selectors::ComplexSelector[
+              left: Selectors::TypeSelector[value: { name: { value: "section" } }],
+              combinator: { value: { value: ">" } },
+              right: Selectors::ComplexSelector[
+                left: Selectors::TypeSelector[value: { name: { value: "table" } }],
+                combinator: nil,
+                right: Selectors::TypeSelector[value: { name: { value: "tr" } }]
+              ]
+            ]
+          ]
+        end
+      end
+
       private
 
       def parse_selectors(selectors)
