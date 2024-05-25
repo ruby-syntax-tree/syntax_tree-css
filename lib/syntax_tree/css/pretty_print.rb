@@ -421,6 +421,44 @@ module SyntaxTree
         end
       end
 
+      # Visit a Selectors::CompoundSelector node.
+      def visit_compound_selector(node)
+        token("compound-selector") do
+          q.breakable
+          q.pp(node.type)
+
+          q.breakable
+          q.text("(subclasses")
+
+          if node.subclasses.any?
+            q.nest(2) do
+              q.breakable
+              q.seplist(node.subclasses) { |subclass| q.pp(subclass) }
+            end
+
+            q.breakable("")
+          end
+
+          q.text(")")
+
+          q.breakable("")
+          q.text("(pseudo-elements")
+
+          if node.pseudo_elements.any?
+            q.nest(2) do
+              q.breakable
+              q.seplist(node.pseudo_elements) do |pseudo_element|
+                q.pp(pseudo_element)
+              end
+            end
+
+            q.breakable("")
+          end
+
+          q.text(")")
+        end
+      end
+
       private
 
       def token(name)

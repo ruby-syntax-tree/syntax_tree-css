@@ -73,7 +73,34 @@ module SyntaxTree
 
       Combinator = Struct.new(:value, keyword_init: true)
       ComplexSelector = Struct.new(:left, :combinator, :right, keyword_init: true)
-      CompoundSelector = Struct.new(:type, :subclasses, :pseudo_elements, keyword_init: true)
+
+      class CompoundSelector < Node
+        attr_reader :type, :subclasses, :pseudo_elements
+
+        def initialize(type:, subclasses:, pseudo_elements:)
+          @type = type
+          @subclasses = subclasses
+          @pseudo_elements = pseudo_elements
+        end
+
+        def accept(visitor)
+          visitor.visit_compound_selector(self)
+        end
+
+        def child_nodes
+          [type, subclasses, pseudo_elements].flatten
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          {
+            type: type,
+            subclasses: subclasses,
+            pseudo_elements: pseudo_elements
+          }
+        end
+      end
 
       # The ID of an element, e.g., #foo
       # https://www.w3.org/TR/selectors-4/#typedef-id-selector

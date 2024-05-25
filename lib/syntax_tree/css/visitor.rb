@@ -132,6 +132,9 @@ module SyntaxTree
       # Visit a Selectors::ClassSelector node.
       alias visit_class_selector visit_child_nodes
 
+      # Visit a Selectors::CompoundSelector node.
+      alias visit_compound_selector visit_child_nodes
+
       # Visit a Selectors::IdSelector node.
       alias visit_id_selector visit_child_nodes
 
