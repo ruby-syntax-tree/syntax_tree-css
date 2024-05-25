@@ -71,8 +71,51 @@ module SyntaxTree
         end
       end
 
-      Combinator = Struct.new(:value, keyword_init: true)
-      ComplexSelector = Struct.new(:left, :combinator, :right, keyword_init: true)
+      class Combinator < Node
+        attr_reader :value
+
+        def initialize(value:)
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_combinator(self)
+        end
+
+        def child_nodes
+          [value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { value: value }
+        end
+      end
+
+      class ComplexSelector < Node
+        attr_reader :left, :combinator, :right
+
+        def initialize(left:, combinator:, right:)
+          @left = left
+          @combinator = combinator
+          @right = right
+        end
+
+        def accept(visitor)
+          visitor.visit_complex_selector(self)
+        end
+
+        def child_nodes
+          [left, combinator, right]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { left: left, combinator: combinator, right: right }
+        end
+      end
 
       class CompoundSelector < Node
         attr_reader :type, :subclasses, :pseudo_elements

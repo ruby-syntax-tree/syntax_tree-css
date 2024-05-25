@@ -421,6 +421,28 @@ module SyntaxTree
         end
       end
 
+      # Visit a Selectors::Combinator node.
+      def visit_combinator(node)
+        token("combinator") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::ComplexSelector node.
+      def visit_complex_selector(node)
+        token("complex-selector") do
+          q.breakable
+          q.pp(node.left)
+
+          q.breakable
+          q.pp(node.combinator)
+
+          q.breakable
+          q.pp(node.right)
+        end
+      end
+
       # Visit a Selectors::CompoundSelector node.
       def visit_compound_selector(node)
         token("compound-selector") do
