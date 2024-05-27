@@ -91,15 +91,10 @@ module SyntaxTree
       # Visit a Selectors::ComplexSelector node.
       def visit_complex_selector(node)
         q.group do
-          node.left.format(q)
-
-          if node.combinator
-            q.text(" ")
-            node.combinator.format(q)
+          node.child_nodes.each_with_index do |child_node, j|
+            q.text(" ") unless j == 0
+            child_node.format(q)
           end
-
-          q.text(" ")
-          node.right.format(q)
         end
       end
 

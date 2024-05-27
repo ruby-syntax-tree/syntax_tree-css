@@ -72,9 +72,11 @@ module SyntaxTree
           assert_pattern do
             actual => [
               Selectors::ComplexSelector[
-                left: Selectors::TypeSelector[value: { name: { value: "section" } }],
-                combinator: { value: { value: ">" } },
-                right: Selectors::TypeSelector[value: { name: { value: "table" } }]
+                child_nodes: [
+                  Selectors::TypeSelector[value: { name: { value: "section" } }],
+                  Selectors::Combinator[value: { value: ">" }],
+                  Selectors::TypeSelector[value: { name: { value: "table" } }]
+                ]
               ]
             ]
           end
@@ -86,12 +88,12 @@ module SyntaxTree
           assert_pattern do
             actual => [
               Selectors::ComplexSelector[
-                left: Selectors::TypeSelector[value: { name: { value: "section" } }],
-                combinator: { value: { value: ">" } },
-                right: Selectors::ComplexSelector[
-                  left: Selectors::TypeSelector[value: { name: { value: "table" } }],
-                  combinator: { value: { value: ">" } },
-                  right: Selectors::TypeSelector[value: { name: { value: "tr" } }]
+                child_nodes: [
+                  Selectors::TypeSelector[value: { name: { value: "section" } }],
+                  Selectors::Combinator[value: { value: ">" }],
+                  Selectors::TypeSelector[value: { name: { value: "table" } }],
+                  Selectors::Combinator[value: { value: ">" }],
+                  Selectors::TypeSelector[value: { name: { value: "tr" } }],
                 ]
               ]
             ]
@@ -104,9 +106,11 @@ module SyntaxTree
           assert_pattern do
             actual => [
               Selectors::ComplexSelector[
-                left: Selectors::TypeSelector[value: { name: { value: "section" } }],
-                combinator: { value: { value: ">" } },
-                right: Selectors::TypeSelector[value: { name: { value: "table" } }],
+                child_nodes: [
+                  Selectors::TypeSelector[value: { name: { value: "section" } }],
+                  Selectors::Combinator[value: { value: ">" }],
+                  Selectors::TypeSelector[value: { name: { value: "table" } }],
+                ]
               ]
             ]
           end
@@ -118,9 +122,10 @@ module SyntaxTree
           assert_pattern do
             actual => [
               Selectors::ComplexSelector[
-                left: Selectors::TypeSelector[value: { name: { value: "section" } }],
-                combinator: nil,
-                right: Selectors::TypeSelector[value: { name: { value: "table" } }],
+                child_nodes: [
+                  Selectors::TypeSelector[value: { name: { value: "section" } }],
+                  Selectors::TypeSelector[value: { name: { value: "table" } }],
+                ]
               ]
             ]
           end
@@ -132,12 +137,11 @@ module SyntaxTree
           assert_pattern do
             actual => [
               Selectors::ComplexSelector[
-                left: Selectors::TypeSelector[value: { name: { value: "section" } }],
-                combinator: { value: { value: ">" } },
-                right: Selectors::ComplexSelector[
-                  left: Selectors::TypeSelector[value: { name: { value: "table" } }],
-                  combinator: nil,
-                  right: Selectors::TypeSelector[value: { name: { value: "tr" } }]
+                child_nodes: [
+                  Selectors::TypeSelector[value: { name: { value: "section" } }],
+                  Selectors::Combinator[value: { value: ">" }],
+                  Selectors::TypeSelector[value: { name: { value: "table" } }],
+                  Selectors::TypeSelector[value: { name: { value: "tr" } }]
                 ]
               ]
             ]

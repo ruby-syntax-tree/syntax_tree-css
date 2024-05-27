@@ -94,26 +94,20 @@ module SyntaxTree
       end
 
       class ComplexSelector < Node
-        attr_reader :left, :combinator, :right
+        attr_reader :child_nodes
 
-        def initialize(left:, combinator:, right:)
-          @left = left
-          @combinator = combinator
-          @right = right
+        def initialize(child_nodes:)
+          @child_nodes = child_nodes
         end
 
         def accept(visitor)
           visitor.visit_complex_selector(self)
         end
 
-        def child_nodes
-          [left, combinator, right]
-        end
-
         alias deconstruct child_nodes
 
         def deconstruct_keys(keys)
-          { left: left, combinator: combinator, right: right }
+          { child_nodes: child_nodes }
         end
       end
 
@@ -337,16 +331,23 @@ module SyntaxTree
 
       # <complex-selector> = <compound-selector> [ <combinator>? <compound-selector> ]*
       def complex_selector
-        consume_whitespace
+        child_nodes = [compound_selector]
 
-        left = compound_selector
+        loop do
+          if (c = maybe { combinator })
+            child_nodes << c
+          end
+          if (s = maybe { compound_selector })
+            child_nodes << s
+          else
+            break
+          end
+        end
 
-        if (c = maybe { combinator })
-          ComplexSelector.new(left: left, combinator: c, right: complex_selector)
-        elsif (right = maybe { complex_selector })
-          ComplexSelector.new(left: left, combinator: nil, right: right)
+        if child_nodes.length > 1
+          ComplexSelector.new(child_nodes: child_nodes)
         else
-          left
+          child_nodes.first
         end
       end
 
@@ -362,6 +363,8 @@ module SyntaxTree
       # <compound-selector> = [ <type-selector>? <subclass-selector>*
       #   [ <pseudo-element-selector> <pseudo-class-selector>* ]* ]!
       def compound_selector
+        consume_whitespace
+
         type = maybe { type_selector }
         subclasses = []
 

@@ -432,14 +432,10 @@ module SyntaxTree
       # Visit a Selectors::ComplexSelector node.
       def visit_complex_selector(node)
         token("complex-selector") do
-          q.breakable
-          q.pp(node.left)
-
-          q.breakable
-          q.pp(node.combinator)
-
-          q.breakable
-          q.pp(node.right)
+          node.child_nodes.each do |child|
+            q.breakable
+            q.pp(child)
+          end
         end
       end
 
