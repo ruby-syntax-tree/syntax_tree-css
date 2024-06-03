@@ -71,9 +71,73 @@ module SyntaxTree
         end
       end
 
-      Combinator = Struct.new(:value, keyword_init: true)
-      ComplexSelector = Struct.new(:left, :combinator, :right, keyword_init: true)
-      CompoundSelector = Struct.new(:type, :subclasses, :pseudo_elements, keyword_init: true)
+      class Combinator < Node
+        attr_reader :value
+
+        def initialize(value:)
+          @value = value
+        end
+
+        def accept(visitor)
+          visitor.visit_combinator(self)
+        end
+
+        def child_nodes
+          [value]
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { value: value }
+        end
+      end
+
+      class ComplexSelector < Node
+        attr_reader :child_nodes
+
+        def initialize(child_nodes:)
+          @child_nodes = child_nodes
+        end
+
+        def accept(visitor)
+          visitor.visit_complex_selector(self)
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          { child_nodes: child_nodes }
+        end
+      end
+
+      class CompoundSelector < Node
+        attr_reader :type, :subclasses, :pseudo_elements
+
+        def initialize(type:, subclasses:, pseudo_elements:)
+          @type = type
+          @subclasses = subclasses
+          @pseudo_elements = pseudo_elements
+        end
+
+        def accept(visitor)
+          visitor.visit_compound_selector(self)
+        end
+
+        def child_nodes
+          [type, subclasses, pseudo_elements].flatten
+        end
+
+        alias deconstruct child_nodes
+
+        def deconstruct_keys(keys)
+          {
+            type: type,
+            subclasses: subclasses,
+            pseudo_elements: pseudo_elements
+          }
+        end
+      end
 
       # The ID of an element, e.g., #foo
       # https://www.w3.org/TR/selectors-4/#typedef-id-selector
@@ -267,27 +331,30 @@ module SyntaxTree
 
       # <complex-selector> = <compound-selector> [ <combinator>? <compound-selector> ]*
       def complex_selector
-        left = compound_selector
+        child_nodes = [compound_selector]
 
         loop do
-          if (combinator = maybe { combinator })
-            ComplexSelector.new(left: left, combinator: combinator, right: compound_selector)
-          elsif (right = maybe { compound_selector })
-            ComplexSelector.new(left: left, combinator: nil, right: right)
+          if (c = maybe { combinator })
+            child_nodes << c
+          end
+          if (s = maybe { compound_selector })
+            child_nodes << s
           else
             break
           end
         end
 
-        left
+        if child_nodes.length > 1
+          ComplexSelector.new(child_nodes: child_nodes)
+        else
+          child_nodes.first
+        end
       end
 
       # <relative-selector> = <combinator>? <complex-selector>
       def relative_selector
-        combinator = maybe { combinator }
-
-        if combinator
-          RelativeSelector.new(combinator: combinator, complex_selector: complex_selector)
+        if (c = maybe { combinator })
+          RelativeSelector.new(combinator: c, complex_selector: complex_selector)
         else
           complex_selector
         end
@@ -296,6 +363,8 @@ module SyntaxTree
       # <compound-selector> = [ <type-selector>? <subclass-selector>*
       #   [ <pseudo-element-selector> <pseudo-class-selector>* ]* ]!
       def compound_selector
+        consume_whitespace
+
         type = maybe { type_selector }
         subclasses = []
 
@@ -332,6 +401,8 @@ module SyntaxTree
 
       # <combinator> = '>' | '+' | '~' | [ '|' '|' ]
       def combinator
+        consume_whitespace
+
         value =
           options do
             maybe { consume(">") } ||
