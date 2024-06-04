@@ -27,6 +27,15 @@ module SyntaxTree
               ]
             ]
           end
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                Selectors::ClassSelector[value: { value: "flex" }],
+                Selectors::ClassSelector[value: { value: "text-xl" }]
+              ]
+            ]
+          end
         end
 
         it "parses a compound selector" do
@@ -38,6 +47,15 @@ module SyntaxTree
                 type: { value: { name: { value: "div" } } },
                 subclasses: [Selectors::ClassSelector[value: { value: "flex" }]],
                 pseudo_elements: []
+              ]
+            ]
+          end
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                Selectors::TypeSelector[value: { name: { value: "div" } } ],
+                Selectors::ClassSelector[value: { value: "flex" }],
               ]
             ]
           end

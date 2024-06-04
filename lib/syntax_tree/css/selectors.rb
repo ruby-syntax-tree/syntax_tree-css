@@ -125,7 +125,7 @@ module SyntaxTree
         end
 
         def child_nodes
-          [type, subclasses, pseudo_elements].flatten
+          [type, subclasses, pseudo_elements].compact.flatten
         end
 
         alias deconstruct child_nodes
