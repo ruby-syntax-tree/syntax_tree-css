@@ -333,12 +333,12 @@ module SyntaxTree
       def complex_selector
         child_nodes = [compound_selector]
 
+        combinator_ = nil
+        compound_selector_ = nil
         loop do
-          if (c = maybe { combinator })
-            child_nodes << c
-          end
-          if (s = maybe { compound_selector })
-            child_nodes << s
+          if maybe { (combinator_ = combinator) && (compound_selector_ = compound_selector) }
+            child_nodes << combinator_
+            child_nodes << compound_selector_
           else
             break
           end
@@ -363,8 +363,6 @@ module SyntaxTree
       # <compound-selector> = [ <type-selector>? <subclass-selector>*
       #   [ <pseudo-element-selector> <pseudo-class-selector>* ]* ]!
       def compound_selector
-        consume_whitespace
-
         type = maybe { type_selector }
         subclasses = []
 
@@ -401,14 +399,13 @@ module SyntaxTree
 
       # <combinator> = '>' | '+' | '~' | [ '|' '|' ]
       def combinator
-        consume_whitespace
-
         value =
           options do
-            maybe { consume(">") } ||
-              maybe { consume("+") } ||
-              maybe { consume("~") } ||
-              maybe { consume("|", "|") }
+            maybe { consume_combinator(">") } ||
+              maybe { consume_combinator("+") } ||
+              maybe { consume_combinator("~") } ||
+              maybe { consume_combinator("|", "|") } ||
+              maybe { consume(WhitespaceToken) }
           end
 
         Combinator.new(value: value)
@@ -552,6 +549,13 @@ module SyntaxTree
             return items
           end
         end
+      end
+
+      def consume_combinator(*values)
+        consume_whitespace
+        result = consume(*values)
+        consume_whitespace
+        result
       end
 
       def consume(*values)

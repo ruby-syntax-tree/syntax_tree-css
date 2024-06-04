@@ -185,6 +185,7 @@ module SyntaxTree
               Selectors::ComplexSelector[
                 child_nodes: [
                   Selectors::TypeSelector[value: { name: { value: "section" } }],
+                  Selectors::Combinator[value: { value: " " }],
                   Selectors::TypeSelector[value: { name: { value: "table" } }],
                 ]
               ]
@@ -202,6 +203,7 @@ module SyntaxTree
                   Selectors::TypeSelector[value: { name: { value: "section" } }],
                   Selectors::Combinator[value: { value: ">" }],
                   Selectors::TypeSelector[value: { name: { value: "table" } }],
+                  Selectors::Combinator[value: { value: " " }],
                   Selectors::TypeSelector[value: { name: { value: "tr" } }]
                 ]
               ]
