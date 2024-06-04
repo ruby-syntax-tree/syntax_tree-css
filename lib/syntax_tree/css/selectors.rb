@@ -334,9 +334,14 @@ module SyntaxTree
         child_nodes = [compound_selector]
 
         loop do
+          maybe { consume_whitespace }
+
           if (c = maybe { combinator })
             child_nodes << c
+
+            maybe { consume_whitespace }
           end
+
           if (s = maybe { compound_selector })
             child_nodes << s
           else
@@ -363,8 +368,6 @@ module SyntaxTree
       # <compound-selector> = [ <type-selector>? <subclass-selector>*
       #   [ <pseudo-element-selector> <pseudo-class-selector>* ]* ]!
       def compound_selector
-        consume_whitespace
-
         type = maybe { type_selector }
         subclasses = []
 
@@ -401,8 +404,6 @@ module SyntaxTree
 
       # <combinator> = '>' | '+' | '~' | [ '|' '|' ]
       def combinator
-        consume_whitespace
-
         value =
           options do
             maybe { consume(">") } ||
