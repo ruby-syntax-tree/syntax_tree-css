@@ -72,11 +72,54 @@ module SyntaxTree
                 pseudo_elements: [
                   [
                     Selectors::PseudoElementSelector[
-                      Selectors::PseudoClassSelector[
-                        value: { value: "first-line" }
-                      ]
+                      value: { value: { value: "first-line" } }
                     ],
                     []
+                  ]
+                ]
+              ]
+            ]
+          end
+        end
+
+        it "parses a compound selector with a pseudo-class" do
+          actual = parse_selectors("div.flex:hover")
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                type: { value: { name: { value: "div" } } },
+                subclasses: [
+                  Selectors::ClassSelector[value: { value: "flex" }],
+                  Selectors::PseudoClassSelector[value: { value: "hover" }],
+                ],
+              ]
+            ]
+          end
+        end
+
+        it "parses a compound selector with pseudo-elements and pseudo-classes" do
+          actual = parse_selectors("div.flex:hover::first-line:last-child:active::first-letter")
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                type: { value: { name: { value: "div" } } },
+                subclasses: [
+                  Selectors::ClassSelector[value: { value: "flex" }],
+                  Selectors::PseudoClassSelector[value: { value: "hover" }],
+                ],
+                pseudo_elements: [
+                  [
+                    Selectors::PseudoElementSelector[value: { value: { value: "first-line" } }],
+                    [
+                      Selectors::PseudoClassSelector[value: { value: "last-child" }],
+                      Selectors::PseudoClassSelector[value: { value: "active" }],
+                    ],
+                  ],
+                  [
+                    Selectors::PseudoElementSelector[value: { value: { value: "first-letter" } }],
+                    [],
                   ]
                 ]
               ]
