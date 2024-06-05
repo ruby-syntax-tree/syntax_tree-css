@@ -423,7 +423,7 @@ module SyntaxTree
 
       # Visit a Selectors::Combinator node.
       def visit_combinator(node)
-        token("combinator") do
+        token(node.class::PP_NAME) do
           q.breakable
           q.pp(node.value)
         end

@@ -128,15 +128,23 @@ module SyntaxTree
         end
 
         it "parses a complex selector" do
-          actual = parse_selectors("section>table")
+          actual = parse_selectors("a b > c + d ~ e || f")
 
           assert_pattern do
             actual => [
               Selectors::ComplexSelector[
                 child_nodes: [
-                  Selectors::TypeSelector[value: { name: { value: "section" } }],
-                  Selectors::Combinator[value: { value: ">" }],
-                  Selectors::TypeSelector[value: { name: { value: "table" } }]
+                  Selectors::TypeSelector[value: { name: { value: "a" } }],
+                  Selectors::DescendantCombinator,
+                  Selectors::TypeSelector[value: { name: { value: "b" } }],
+                  Selectors::ChildCombinator,
+                  Selectors::TypeSelector[value: { name: { value: "c" } }],
+                  Selectors::NextSiblingCombinator,
+                  Selectors::TypeSelector[value: { name: { value: "d" } }],
+                  Selectors::SubsequentSiblingCombinator,
+                  Selectors::TypeSelector[value: { name: { value: "e" } }],
+                  Selectors::ColumnSiblingCombinator,
+                  Selectors::TypeSelector[value: { name: { value: "f" } }],
                 ]
               ]
             ]

@@ -93,6 +93,36 @@ module SyntaxTree
         end
       end
 
+      # §15.1 https://www.w3.org/TR/selectors-4/#descendant-combinators
+      class DescendantCombinator < Combinator
+        TOKEN = WhitespaceToken
+        PP_NAME = "descendant-combinator"
+      end
+
+      # §15.2 https://www.w3.org/TR/selectors-4/#child-combinators
+      class ChildCombinator < Combinator
+        TOKEN = ">"
+        PP_NAME = "child-combinator"
+      end
+
+      # §15.3 https://www.w3.org/TR/selectors-4/#adjacent-sibling-combinators
+      class NextSiblingCombinator < Combinator
+        TOKEN = "+"
+        PP_NAME = "next-sibling-combinator"
+      end
+
+      # §15.4 https://www.w3.org/TR/selectors-4/#general-sibling-combinators
+      class SubsequentSiblingCombinator < Combinator
+        TOKEN = "~"
+        PP_NAME = "subsequent-sibling-combinator"
+      end
+
+      # §16.1 https://www.w3.org/TR/selectors-4/#the-column-combinator
+      class ColumnSiblingCombinator < Combinator
+        TOKEN = ["|", "|"]
+        PP_NAME = "column-sibling-combinator"
+      end
+
       class ComplexSelector < Node
         attr_reader :child_nodes
 
@@ -399,16 +429,13 @@ module SyntaxTree
 
       # <combinator> = '>' | '+' | '~' | [ '|' '|' ]
       def combinator
-        value =
-          options do
-            maybe { consume_combinator(">") } ||
-              maybe { consume_combinator("+") } ||
-              maybe { consume_combinator("~") } ||
-              maybe { consume_combinator("|", "|") } ||
-              maybe { consume(WhitespaceToken) }
-          end
-
-        Combinator.new(value: value)
+        options do
+          maybe { consume_combinator(ChildCombinator) } ||
+            maybe { consume_combinator(NextSiblingCombinator) } ||
+            maybe { consume_combinator(SubsequentSiblingCombinator) } ||
+            maybe { consume_combinator(ColumnSiblingCombinator) } ||
+            maybe { consume_combinator(DescendantCombinator) }
+        end
       end
 
       # <type-selector> = <wq-name> | <ns-prefix>? '*'
@@ -551,11 +578,14 @@ module SyntaxTree
         end
       end
 
-      def consume_combinator(*values)
-        consume_whitespace
-        result = consume(*values)
-        consume_whitespace
-        result
+      def consume_combinator(combinator_class)
+        eat_whitespace = (combinator_class::TOKEN != WhitespaceToken)
+
+        consume_whitespace if eat_whitespace
+        result = consume(*combinator_class::TOKEN)
+        consume_whitespace if eat_whitespace
+
+        combinator_class.new(value: result)
       end
 
       def consume(*values)
