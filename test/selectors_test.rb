@@ -27,6 +27,15 @@ module SyntaxTree
               ]
             ]
           end
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                Selectors::ClassSelector[value: { value: "flex" }],
+                Selectors::ClassSelector[value: { value: "text-xl" }]
+              ]
+            ]
+          end
         end
 
         it "parses a compound selector" do
@@ -38,6 +47,15 @@ module SyntaxTree
                 type: { value: { name: { value: "div" } } },
                 subclasses: [Selectors::ClassSelector[value: { value: "flex" }]],
                 pseudo_elements: []
+              ]
+            ]
+          end
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                Selectors::TypeSelector[value: { name: { value: "div" } } ],
+                Selectors::ClassSelector[value: { value: "flex" }],
               ]
             ]
           end
@@ -54,11 +72,54 @@ module SyntaxTree
                 pseudo_elements: [
                   [
                     Selectors::PseudoElementSelector[
-                      Selectors::PseudoClassSelector[
-                        value: { value: "first-line" }
-                      ]
+                      value: { value: { value: "first-line" } }
                     ],
                     []
+                  ]
+                ]
+              ]
+            ]
+          end
+        end
+
+        it "parses a compound selector with a pseudo-class" do
+          actual = parse_selectors("div.flex:hover")
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                type: { value: { name: { value: "div" } } },
+                subclasses: [
+                  Selectors::ClassSelector[value: { value: "flex" }],
+                  Selectors::PseudoClassSelector[value: { value: "hover" }],
+                ],
+              ]
+            ]
+          end
+        end
+
+        it "parses a compound selector with pseudo-elements and pseudo-classes" do
+          actual = parse_selectors("div.flex:hover::first-line:last-child:active::first-letter")
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                type: { value: { name: { value: "div" } } },
+                subclasses: [
+                  Selectors::ClassSelector[value: { value: "flex" }],
+                  Selectors::PseudoClassSelector[value: { value: "hover" }],
+                ],
+                pseudo_elements: [
+                  [
+                    Selectors::PseudoElementSelector[value: { value: { value: "first-line" } }],
+                    [
+                      Selectors::PseudoClassSelector[value: { value: "last-child" }],
+                      Selectors::PseudoClassSelector[value: { value: "active" }],
+                    ],
+                  ],
+                  [
+                    Selectors::PseudoElementSelector[value: { value: { value: "first-letter" } }],
+                    [],
                   ]
                 ]
               ]
@@ -151,8 +212,43 @@ module SyntaxTree
       end
 
       describe "formatting" do
-        it "formats complex selectors" do
-          assert_selector_format(".outer section.foo>table.bar   tr", ".outer section.foo > table.bar tr")
+        describe Selectors::CompoundSelector do
+          it "with an id selector" do
+            assert_selector_format(
+              "div#foo",
+              "div#foo",
+            )
+          end
+
+          it "with a pseudo-class selector" do
+            assert_selector_format(
+              "div:hover",
+              "div:hover",
+            )
+          end
+
+          it "with class selectors" do
+            assert_selector_format(
+              "div.flex.text-xl",
+              "div.flex.text-xl",
+            )
+          end
+
+          it "with pseudo-elements" do
+            assert_selector_format(
+              "div.flex:hover::first-line:last-child:active::first-letter",
+              "div.flex:hover::first-line:last-child:active::first-letter",
+            )
+          end
+        end
+
+        describe Selectors::ComplexSelector do
+          it "with whitespace" do
+            assert_selector_format(
+              ".outer section.foo>table.bar   tr",
+              ".outer section.foo > table.bar tr",
+            )
+          end
         end
 
         private
@@ -162,7 +258,7 @@ module SyntaxTree
 
           io = StringIO.new
           selectors.each do |selector|
-            selector.format(::PrettyPrint.new(io))
+            selector.format(::PP.new(io))
             assert_equal(expected, io.string)
           end
         end

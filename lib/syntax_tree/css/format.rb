@@ -47,6 +47,11 @@ module SyntaxTree
         q.text(node.value)
       end
 
+      # Visit a HashToken node.
+      def visit_hash_token(node)
+        q.text(node.value)
+      end
+
       # Visit a StyleRule node.
       def visit_style_rule(node)
         q.group do
@@ -77,9 +82,27 @@ module SyntaxTree
         end
       end
 
+      # Visit a Selectors::IdSelector node.
+      def visit_id_selector(node)
+        q.text("#")
+        node.value.format(q)
+      end
+
       # Visit a Selectors::ClassSelector node.
       def visit_class_selector(node)
         q.text(".")
+        node.value.format(q)
+      end
+
+      # Visit a Selectors::PseudoClassSelector node.
+      def visit_pseudo_class_selector(node)
+        q.text(":")
+        node.value.format(q)
+      end
+
+      # Visit a Selectors::PseudoElementSelector node.
+      def visit_pseudo_element_selector(node)
+        q.text(":")
         node.value.format(q)
       end
 
@@ -101,9 +124,8 @@ module SyntaxTree
       # Visit a Selectors::CompoundSelector node.
       def visit_compound_selector(node)
         q.group do
-          node.type.format(q) if node.type
-          node.subclasses.each do |subclass|
-            subclass.format(q)
+          node.child_nodes.each do |node_|
+            node_.format(q)
           end
           # TODO: pseudo-elements
         end
