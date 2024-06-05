@@ -82,7 +82,7 @@ module SyntaxTree
           end
         end
 
-        it "parses a compound selector with a pseudo-class" do
+        it "parses a compound selector with a pseudo-class selector" do
           actual = parse_selectors("div.flex:hover")
 
           assert_pattern do
@@ -92,6 +92,33 @@ module SyntaxTree
                 subclasses: [
                   Selectors::ClassSelector[value: { value: "flex" }],
                   Selectors::PseudoClassSelector[value: { value: "hover" }],
+                ],
+              ]
+            ]
+          end
+        end
+
+        it "parses a compound selector with a pseudo-class function" do
+          actual = parse_selectors(".flex:not(div, span.wide, .hidden)")
+
+          assert_pattern do
+            actual => [
+              Selectors::CompoundSelector[
+                type: nil,
+                subclasses: [
+                  Selectors::ClassSelector[value: { value: "flex" }],
+                  Selectors::PseudoClassSelector[
+                    value: Selectors::PseudoClassFunction[
+                      name: "not",
+                      arguments: [
+                        Selectors::TypeSelector[value: { name: { value: "div" } }],
+                        Selectors::CompoundSelector[
+                          Selectors::TypeSelector[value: { name: { value: "span" } }],
+                          Selectors::ClassSelector[value: { value: "wide" }],
+                        ],
+                      ],
+                    ],
+                  ],
                 ],
               ]
             ]
@@ -208,7 +235,6 @@ module SyntaxTree
             ]
           end
         end
-
       end
 
       describe "formatting" do
