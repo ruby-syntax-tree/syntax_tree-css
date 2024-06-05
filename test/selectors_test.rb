@@ -253,6 +253,13 @@ module SyntaxTree
             )
           end
 
+          it "with a pseudo-class function" do
+            assert_selector_format(
+              ".flex:not(div, span.wide, .hidden)",
+              ".flex:not(div, span.wide, .hidden)",
+            )
+          end
+
           it "with class selectors" do
             assert_selector_format(
               "div.flex.text-xl",
