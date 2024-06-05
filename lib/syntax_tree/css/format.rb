@@ -111,6 +111,10 @@ module SyntaxTree
         case node.value
         when WhitespaceToken
           q.text(" ")
+        when Array
+          q.text(" ")
+          node.value.each { |val| val.format(q) }
+          q.text(" ")
         else
           q.text(" ")
           node.value.format(q)

@@ -251,6 +251,13 @@ module SyntaxTree
               ".outer section.foo > table.bar tr",
             )
           end
+
+          it "handles all the combinators" do
+            assert_selector_format(
+              "a b > c + d ~ e || f",
+              "a b > c + d ~ e || f",
+            )
+          end
         end
 
         private
