@@ -42,13 +42,13 @@ module SyntaxTree
         q.text(node.value)
       end
 
-      # Visit an IdentToken node.
-      def visit_ident_token(node)
+      # Visit a HashToken node.
+      def visit_hash_token(node)
         q.text(node.value)
       end
 
-      # Visit a HashToken node.
-      def visit_hash_token(node)
+      # Visit an IdentToken node.
+      def visit_ident_token(node)
         q.text(node.value)
       end
 
@@ -70,16 +70,58 @@ module SyntaxTree
         end
       end
 
+      # Visit a Selectors::SubsequentSiblingCombinator node.
+      def visit_subsequent_sibling_combinator(node)
+        q.text(" ")
+        node.value.format(q)
+        q.text(" ")
+      end
+
       #-------------------------------------------------------------------------
       # Selector nodes
       #-------------------------------------------------------------------------
 
-      # Visit a Selectors::TypeSelector node.
-      def visit_type_selector(node)
+      # Visit a Selectors::ChildCombinator node.
+      def visit_child_combinator(node)
+        q.text(" ")
+        node.value.format(q)
+        q.text(" ")
+      end
+
+      # Visit a Selectors::ClassSelector node.
+      def visit_class_selector(node)
+        q.text(".")
+        node.value.format(q)
+      end
+
+      # Visit a Selectors::ColumnSiblingCombinator node.
+      def visit_column_sibling_combinator(node)
+        q.text(" ")
+        node.value.each { |value| value.format(q) }
+        q.text(" ")
+      end
+
+      # Visit a Selectors::ComplexSelector node.
+      def visit_complex_selector(node)
         q.group do
-          node.prefix.format(q) if node.prefix
-          node.value.format(q)
+          node.child_nodes.each do |child_node|
+            child_node.format(q)
+          end
         end
+      end
+
+      # Visit a Selectors::CompoundSelector node.
+      def visit_compound_selector(node)
+        q.group do
+          node.child_nodes.each do |child_node|
+            child_node.format(q)
+          end
+        end
+      end
+
+      # Visit a Selectors::DescendantCombinator node.
+      def visit_descendant_combinator(node)
+        q.text(" ")
       end
 
       # Visit a Selectors::IdSelector node.
@@ -88,10 +130,19 @@ module SyntaxTree
         node.value.format(q)
       end
 
-      # Visit a Selectors::ClassSelector node.
-      def visit_class_selector(node)
-        q.text(".")
+      # Visit a Selectors::NextSiblingCombinator node.
+      def visit_next_sibling_combinator(node)
+        q.text(" ")
         node.value.format(q)
+        q.text(" ")
+      end
+
+      # Visit a Selectors::TypeSelector node.
+      def visit_type_selector(node)
+        q.group do
+          node.prefix&.format(q)
+          node.value.format(q)
+        end
       end
 
       # Visit a Selectors::PseudoClassSelector node.
@@ -116,42 +167,9 @@ module SyntaxTree
         node.value.format(q)
       end
 
-      # Visit a Selectors::Combinator node.
-      def visit_combinator(node)
-        case node.value
-        when WhitespaceToken
-          q.text(" ")
-        when Array
-          q.text(" ")
-          node.value.each { |val| val.format(q) }
-          q.text(" ")
-        else
-          q.text(" ")
-          node.value.format(q)
-          q.text(" ")
-        end
-      end
-
-      # Visit a Selectors::ComplexSelector node.
-      def visit_complex_selector(node)
-        q.group do
-          node.child_nodes.each_with_index do |child_node, j|
-            child_node.format(q)
-          end
-        end
-      end
-
-      # Visit a Selectors::CompoundSelector node.
-      def visit_compound_selector(node)
-        q.group do
-          node.child_nodes.each do |node_|
-            node_.format(q)
-          end
-        end
-      end
-
+      # Visit a Selectors::WqName node.
       def visit_wqname(node)
-        node.prefix.format(q) if node.prefix
+        node.prefix&.format(q)
         node.name.format(q)
       end
     end

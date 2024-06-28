@@ -129,11 +129,14 @@ module SyntaxTree
       # Selector nodes
       #-------------------------------------------------------------------------
 
+      # Visit a Selectors::ChildCombinator node.
+      alias visit_child_combinator visit_child_nodes
+
       # Visit a Selectors::ClassSelector node.
       alias visit_class_selector visit_child_nodes
 
-      # Visit a Selectors::Combinator node.
-      alias visit_combinator visit_child_nodes
+      # Visit a Selectors::ColumnSiblingCombinator node.
+      alias visit_column_sibling_combinator visit_child_nodes
 
       # Visit a Selectors::ComplexSelector node.
       alias visit_complex_selector visit_child_nodes
@@ -141,8 +144,14 @@ module SyntaxTree
       # Visit a Selectors::CompoundSelector node.
       alias visit_compound_selector visit_child_nodes
 
+      # Visit a Selectors::DescendantCombinator node.
+      alias visit_descendant_combinator visit_child_nodes
+
       # Visit a Selectors::IdSelector node.
       alias visit_id_selector visit_child_nodes
+
+      # Visit a Selectors::NextSiblingCombinator node.
+      alias visit_next_sibling_combinator visit_child_nodes
 
       # Visit a Selectors::PseudoClassFunction node.
       alias visit_pseudo_class_function visit_child_nodes
@@ -152,6 +161,9 @@ module SyntaxTree
 
       # Visit a Selectors::PseudoElementSelector node.
       alias visit_pseudo_element_selector visit_child_nodes
+
+      # Visit a Selectors::SubsequentSiblingCombinator node.
+      alias visit_subsequent_sibling_combinator visit_child_nodes
 
       # Visit a Selectors::TypeSelector node.
       alias visit_type_selector visit_child_nodes

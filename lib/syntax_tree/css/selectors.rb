@@ -71,6 +71,8 @@ module SyntaxTree
         end
       end
 
+      # A joiner between two selectors.
+      # https://www.w3.org/TR/selectors-4/#combinators
       class Combinator < Node
         attr_reader :value
 
@@ -79,7 +81,7 @@ module SyntaxTree
         end
 
         def accept(visitor)
-          visitor.visit_combinator(self)
+          raise NoMethodError, __method__
         end
 
         def child_nodes
@@ -95,32 +97,37 @@ module SyntaxTree
 
       # §15.1 https://www.w3.org/TR/selectors-4/#descendant-combinators
       class DescendantCombinator < Combinator
-        TOKEN = WhitespaceToken
-        PP_NAME = "descendant-combinator"
+        def accept(visitor)
+          visitor.visit_descendant_combinator(self)
+        end
       end
 
       # §15.2 https://www.w3.org/TR/selectors-4/#child-combinators
       class ChildCombinator < Combinator
-        TOKEN = ">"
-        PP_NAME = "child-combinator"
+        def accept(visitor)
+          visitor.visit_child_combinator(self)
+        end
       end
 
       # §15.3 https://www.w3.org/TR/selectors-4/#adjacent-sibling-combinators
       class NextSiblingCombinator < Combinator
-        TOKEN = "+"
-        PP_NAME = "next-sibling-combinator"
+        def accept(visitor)
+          visitor.visit_next_sibling_combinator(self)
+        end
       end
 
       # §15.4 https://www.w3.org/TR/selectors-4/#general-sibling-combinators
       class SubsequentSiblingCombinator < Combinator
-        TOKEN = "~"
-        PP_NAME = "subsequent-sibling-combinator"
+        def accept(visitor)
+          visitor.visit_subsequent_sibling_combinator(self)
+        end
       end
 
       # §16.1 https://www.w3.org/TR/selectors-4/#the-column-combinator
       class ColumnSiblingCombinator < Combinator
-        TOKEN = ["|", "|"]
-        PP_NAME = "column-sibling-combinator"
+        def accept(visitor)
+          visitor.visit_column_sibling_combinator(self)
+        end
       end
 
       class ComplexSelector < Node
@@ -430,11 +437,11 @@ module SyntaxTree
       # <combinator> = '>' | '+' | '~' | [ '|' '|' ]
       def combinator
         options do
-          maybe { consume_combinator(ChildCombinator) } ||
-            maybe { consume_combinator(NextSiblingCombinator) } ||
-            maybe { consume_combinator(SubsequentSiblingCombinator) } ||
-            maybe { consume_combinator(ColumnSiblingCombinator) } ||
-            maybe { consume_combinator(DescendantCombinator) }
+          maybe { consume_child_combinator } ||
+            maybe { consume_next_sibling_combinator } ||
+            maybe { consume_subsequent_sibling_combinator } ||
+            maybe { consume_column_sibling_combinator } ||
+            maybe { consume_descendant_combinator }
         end
       end
 
@@ -579,30 +586,47 @@ module SyntaxTree
         end
       end
 
-      def consume_combinator(combinator_class)
-        eat_whitespace = (combinator_class::TOKEN != WhitespaceToken)
-
-        consume_whitespace if eat_whitespace
-        result = consume(*combinator_class::TOKEN)
-        consume_whitespace if eat_whitespace
-
-        combinator_class.new(value: result)
+      def consume_child_combinator
+        consume_whitespace
+        result = consume(">")
+        consume_whitespace
+        ChildCombinator.new(value: result)
       end
 
-      def consume(*values)
-        result =
-          values.map do |value|
-            case [value, tokens.peek]
-            in [String, DelimToken[value: token_value]] if value == token_value
-              tokens.next
-            in [Class, token] if token.is_a?(value)
-              tokens.next
-            in [_, token]
-              raise MissingTokenError, "Expected #{value} but got #{token.inspect}"
-            end
-          end
+      def consume_next_sibling_combinator
+        consume_whitespace
+        result = consume("+")
+        consume_whitespace
+        NextSiblingCombinator.new(value: result)
+      end
 
-        result.size == 1 ? result.first : result
+      def consume_subsequent_sibling_combinator
+        consume_whitespace
+        result = consume("~")
+        consume_whitespace
+        SubsequentSiblingCombinator.new(value: result)
+      end
+
+      def consume_column_sibling_combinator
+        consume_whitespace
+        result = [consume("|"), consume("|")]
+        consume_whitespace
+        ColumnSiblingCombinator.new(value: result)
+      end
+
+      def consume_descendant_combinator
+        DescendantCombinator.new(value: consume(WhitespaceToken))
+      end
+
+      def consume(value)
+        case [value, tokens.peek]
+        in [String, DelimToken[value: token_value]] if value == token_value
+          tokens.next
+        in [Class, token] if token.is_a?(value)
+          tokens.next
+        in [_, token]
+          raise MissingTokenError, "Expected #{value} but got #{token.inspect}"
+        end
       end
 
       def maybe
