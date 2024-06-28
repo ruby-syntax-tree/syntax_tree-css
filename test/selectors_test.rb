@@ -317,8 +317,13 @@ module SyntaxTree
       private
 
       def parse_selectors(selectors)
-        css = selectors + " {}"
-        Parser.new(css).parse.rules.first.selectors
+        rule = Parser.new("#{selectors} {}").parse.rules.first
+
+        # Pretty-print and format so that we have coverage.
+        PP.pp(rule, +"")
+        PrettierPrint.format(+"", 80) { |q| rule.format(q) }
+
+        rule.selectors
       end
     end
   end

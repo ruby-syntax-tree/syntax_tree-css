@@ -350,89 +350,17 @@ module SyntaxTree
       # Selector nodes
       #-------------------------------------------------------------------------
 
-      # Visit a Selectors::ClassSelector node.
-      def visit_class_selector(node)
-        token("class-selector") do
+      # Visit a Selectors::ChildCombinator node.
+      def visit_child_combinator(node)
+        token("child-combinator") do
           q.breakable
           q.pp(node.value)
         end
       end
 
-      # Visit a Selectors::IdSelector node.
-      def visit_id_selector(node)
-        token("id-selector") do
-          q.breakable
-          q.pp(node.value)
-        end
-      end
-
-      # Visit a Selectors::PseudoClassSelector node.
-      def visit_pseudo_class_selector(node)
-        token("pseudo-class-selector") do
-          q.breakable
-          q.pp(node.value)
-        end
-      end
-
-      # Visit a Selectors::PseudoClassFunction node.
-      def visit_pseudo_class_function(node)
-        token("pseudo-class-function") do
-          q.breakable
-          q.pp(node.name)
-
-          q.breakable
-          q.text("(arguments")
-
-          if node.arguments.any?
-            q.nest(2) do
-              q.breakable
-              q.seplist(node.arguments) { |argument| q.pp(argument) }
-            end
-
-            q.breakable("")
-          end
-
-          q.text(")")
-        end
-      end
-
-      # Visit a Selectors::PseudoElementSelector node.
-      def visit_pseudo_element_selector(node)
-        token("pseudo-element-selector") do
-          q.breakable
-          q.pp(node.value)
-        end
-      end
-
-      # Visit a Selectors::TypeSelector node.
-      def visit_type_selector(node)
-        token("type-selector") do
-          if node.prefix
-            q.breakable
-            q.pp(node.prefix)
-          end
-
-          q.breakable
-          q.pp(node.value)
-        end
-      end
-
-      # Visit a Selectors::WqName node.
-      def visit_wqname(node)
-        token("wqname") do
-          if node.prefix
-            q.breakable
-            q.pp(node.prefix)
-          end
-
-          q.breakable
-          q.pp(node.name)
-        end
-      end
-
-      # Visit a Selectors::Combinator node.
-      def visit_combinator(node)
-        token(node.class::PP_NAME) do
+      # Visit a Selectors::ColumnSiblingCombinator node.
+      def visit_column_sibling_combinator(node)
+        token("column-sibling-combinator") do
           q.breakable
           q.pp(node.value)
         end
@@ -486,6 +414,110 @@ module SyntaxTree
           end
 
           q.text(")")
+        end
+      end
+
+      # Visit a Selectors::ClassSelector node.
+      def visit_class_selector(node)
+        token("class-selector") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::DescendantCombinator node.
+      def visit_descendant_combinator(node)
+        token("descendant-combinator") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::IdSelector node.
+      def visit_id_selector(node)
+        token("id-selector") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::NextSiblingCombinator node.
+      def visit_next_sibling_combinator(node)
+        token("next-sibling-combinator") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::PseudoClassSelector node.
+      def visit_pseudo_class_selector(node)
+        token("pseudo-class-selector") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::PseudoClassFunction node.
+      def visit_pseudo_class_function(node)
+        token("pseudo-class-function") do
+          q.breakable
+          q.pp(node.name)
+
+          q.breakable
+          q.text("(arguments")
+
+          if node.arguments.any?
+            q.nest(2) do
+              q.breakable
+              q.seplist(node.arguments) { |argument| q.pp(argument) }
+            end
+
+            q.breakable("")
+          end
+
+          q.text(")")
+        end
+      end
+
+      # Visit a Selectors::PseudoElementSelector node.
+      def visit_pseudo_element_selector(node)
+        token("pseudo-element-selector") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::SubsequentSiblingCombinator node.
+      def visit_subsequent_sibling_combinator(node)
+        token("subsequent-sibling-combinator") do
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::TypeSelector node.
+      def visit_type_selector(node)
+        token("type-selector") do
+          if node.prefix
+            q.breakable
+            q.pp(node.prefix)
+          end
+
+          q.breakable
+          q.pp(node.value)
+        end
+      end
+
+      # Visit a Selectors::WqName node.
+      def visit_wqname(node)
+        token("wqname") do
+          if node.prefix
+            q.breakable
+            q.pp(node.prefix)
+          end
+
+          q.breakable
+          q.pp(node.name)
         end
       end
 
