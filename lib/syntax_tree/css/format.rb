@@ -100,6 +100,16 @@ module SyntaxTree
         node.value.format(q)
       end
 
+      # Visit a Selectors::PseudoClassFunction node.
+      def visit_pseudo_class_function(node)
+        q.text(node.name)
+        q.text("(")
+        q.seplist(node.arguments, -> { q.text(", ") }) do |selector|
+          selector.format(q)
+        end
+        q.text(")")
+      end
+
       # Visit a Selectors::PseudoElementSelector node.
       def visit_pseudo_element_selector(node)
         q.text(":")
@@ -137,7 +147,6 @@ module SyntaxTree
           node.child_nodes.each do |node_|
             node_.format(q)
           end
-          # TODO: pseudo-elements
         end
       end
 

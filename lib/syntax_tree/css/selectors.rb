@@ -533,7 +533,8 @@ module SyntaxTree
           PseudoClassSelector.new(value: consume(IdentToken))
         in Function
           node = consume(Function)
-          function = PseudoClassFunction.new(name: node.name, arguments: node.value)
+          arguments = Selectors.new(node.value).parse
+          function = PseudoClassFunction.new(name: node.name, arguments: arguments)
           PseudoClassSelector.new(value: function)
         else
           raise MissingTokenError, "Expected pseudo class selector to produce something"

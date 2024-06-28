@@ -380,10 +380,19 @@ module SyntaxTree
           q.breakable
           q.pp(node.name)
 
+          q.breakable
+          q.text("(arguments")
+
           if node.arguments.any?
-            q.breakable
-            q.seplist(node.arguments) { |argument| q.pp(argument) }
+            q.nest(2) do
+              q.breakable
+              q.seplist(node.arguments) { |argument| q.pp(argument) }
+            end
+
+            q.breakable("")
           end
+
+          q.text(")")
         end
       end
 
@@ -443,7 +452,10 @@ module SyntaxTree
       def visit_compound_selector(node)
         token("compound-selector") do
           q.breakable
-          q.pp(node.type)
+          token("type") do
+            q.breakable
+            q.pp(node.type)
+          end
 
           q.breakable
           q.text("(subclasses")
