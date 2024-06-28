@@ -108,14 +108,24 @@ module SyntaxTree
 
       # Visit a Selectors::Combinator node.
       def visit_combinator(node)
-        node.value.format(q)
+        case node.value
+        when WhitespaceToken
+          q.text(" ")
+        when Array
+          q.text(" ")
+          node.value.each { |val| val.format(q) }
+          q.text(" ")
+        else
+          q.text(" ")
+          node.value.format(q)
+          q.text(" ")
+        end
       end
 
       # Visit a Selectors::ComplexSelector node.
       def visit_complex_selector(node)
         q.group do
           node.child_nodes.each_with_index do |child_node, j|
-            q.text(" ") unless j == 0
             child_node.format(q)
           end
         end
